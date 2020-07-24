@@ -2,7 +2,7 @@ import socket
 import logging
 import time
 import json
-import code
+import pandas as pd
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Tuple, NamedTuple
@@ -14,7 +14,7 @@ class RunDataRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        content_len: int = int(self.headers['content-length'])
+        content_len: int = int(self.headers["content-length"])
         request_body: bytes = self.rfile.read(content_len)
         request_str: str = request_body.decode()
         request_dict: dict = json.loads(request_str)
