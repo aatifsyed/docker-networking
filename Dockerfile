@@ -6,7 +6,7 @@ RUN python -m pip install requests
 
 WORKDIR "/dataserver"
 
-COPY data .
+COPY data data
 COPY server.py .
 COPY client.py .
 

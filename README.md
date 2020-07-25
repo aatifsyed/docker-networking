@@ -4,7 +4,7 @@ docker network create --driver bridge aatif.net
 ```
 # Build container
 ```
-docker build --tag dataserver . && docker image prune --force
+docker container stop --time 0 server; docker build --tag dataserver . && docker image prune --force
 ```
 # Run server
 ```
