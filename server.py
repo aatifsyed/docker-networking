@@ -1,49 +1,70 @@
 import socket
 import logging
-import time
 import json
 import pandas as pd
+import pickle
 
+from typing import Tuple, List
+
+from http import HTTPStatus
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Tuple, NamedTuple
+
+# Send this to a GET to remind the user how to POST
+supported_fmt: List[str] = ["pickle", "JSON"]
+tutorial: dict = {"min": 0, "max": 1, "fmt": supported_fmt}
 
 
 class RunDataRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        self.send_response(200)
-        self.send_header("Content-type", "application/json")
-        self.end_headers()
+        try:
+            # First read in the request
+            content_len: int = int(self.headers["content-length"])
+            request: bytes = self.rfile.read(content_len)
+            request: str = request.decode()
+            request: dict = json.loads(request)
 
-        content_len: int = int(self.headers["content-length"])
-        request_body: bytes = self.rfile.read(content_len)
-        request_str: str = request_body.decode()
-        request_dict: dict = json.loads(request_str)
-        logging.debug(f"{self.client_address} wants {request_dict}")
+            logging.debug(request)
 
-        request_min: int = request_dict["Minimum"]
-        request_max: int = request_dict["Maximum"]
+            r_min: int = request["min"]
+            r_max: int = request["max"]
+            r_fmt: str = request["fmt"]
 
-        with open("data/train.csv") as f:
-            db_df: pd.DataFrame = pd.read_csv(f)
+            assert r_fmt in supported_fmt
 
-        response_df: pd.DataFrame = db_df[request_min:request_max]
-        response_string: str = response_df.to_json()
-        response_bytes: bytes = response_string.encode()
+            # Perform the lookup
+            with open("data/train.csv") as f:
+                db: pd.DataFrame = pd.read_csv(f)
 
-        self.wfile.write(response_bytes)
+            response: pd.DataFrame = db[r_min:r_max]
+
+        except:
+            logging.info(f"Bad request from {self.client_address}")
+            logging.debug(request)
+            self.send_error(HTTPStatus.BAD_REQUEST)
+
+        else:
+            if r_fmt == "JSON":
+                content_MIME: str = "application/json"
+                response: str = response.to_json()
+                response: bytes = response.encode()
+            elif r_fmt == "pickle":
+                content_MIME: str = "application/binary"
+                response: bytes = pickle.dumps(response, protocol=2)
+
+            self.send_response(200)
+            self.send_header("Content-type", content_MIME)
+            self.end_headers()
+
+            logging.debug(response)
+            self.wfile.write(response)
 
     def do_GET(self):
         # Respond to requests
-        logging.debug(f"Received a GET from {self.client_address} for {self.path}")
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        # https://gist.github.com/nitaku/10d0662536f37a087e1b
-        example: dict = {"Minimum": None, "Maximum": None}
-        data: bytes = json.dumps(example).encode()
-
-        time.sleep(0.1)
+        data: bytes = json.dumps(tutorial).encode()
 
         self.wfile.write(data)
 
@@ -63,7 +84,7 @@ def run_httpd(
 
 if __name__ == "__main__":
     # https://docs.python.org/3/library/http.server.html
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     try:
         run_httpd(handler_class=RunDataRequestHandler)
     except KeyboardInterrupt:
