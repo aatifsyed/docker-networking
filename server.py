@@ -23,8 +23,11 @@ class RunDataRequestHandler(BaseHTTPRequestHandler):
         request_min: int = request_dict["Minimum"]
         request_max: int = request_dict["Maximum"]
 
-        response_dict: dict = {"Difference": request_max - request_min}
-        response_string: str = json.dumps(response_dict)
+        with open("data/train.csv") as f:
+            db_df: pd.DataFrame = pd.read_csv(f)
+
+        response_df: pd.DataFrame = db_df[request_min:request_max]
+        response_string: str = response_df.to_json()
         response_bytes: bytes = response_string.encode()
 
         self.wfile.write(response_bytes)
